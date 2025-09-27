@@ -2,11 +2,11 @@ import express from "express";
 import fetch from "node-fetch";
 import { WebSocketServer } from "ws";
 import WebSocket from "ws";
-import cors from "cors";   // ✅ import cors
+import cors from "cors";
 
 const app = express();
 app.use(express.json());
-app.use(cors());  // ✅ allow all origins (or configure specific ones)
+app.use(cors());
 
 const HYPERDECK_IP = "192.168.173.200";
 const BASE_URL = `http://${HYPERDECK_IP}/control/api/v1`;
@@ -16,10 +16,11 @@ const wss = new WebSocketServer({ port: 4001 });
 wss.on("connection", ws => {
   console.log("React client connected to backend WebSocket");
 });
+
 function broadcast(data) {
   const msg = JSON.stringify(data);
   wss.clients.forEach(client => {
-    if (client.readyState === 1) client.send(msg);
+    if (client.readyState === WebSocket.OPEN) client.send(msg);
   });
 }
 
@@ -39,16 +40,6 @@ app.post("/api/record", async (req, res) => {
   res.send({ status: "ok" });
 });
 
-// HyperDeck WebSocket events
-// const hyperdeckWs = new WebSocket(`ws://${HYPERDECK_IP}/control/api/v1/websocket`);
-
-// hyperdeckWs.on("open", () => console.log("Connected to HyperDeck WebSocket"));
-// hyperdeckWs.on("message", msg => {
-//   const data = JSON.parse(msg.toString());
-//   console.log("HyperDeck event:", data);
-//   broadcast(data);
-// });
-
 app.get("/api/clips", async (req, res) => {
   try {
     const response = await fetch(`${BASE_URL}/clips`);
@@ -59,28 +50,18 @@ app.get("/api/clips", async (req, res) => {
   }
 });
 
+// Play a specific clip via timeline
 app.post("/api/play/:clipId", async (req, res) => {
   const clipId = parseInt(req.params.clipId, 10);
-
   try {
-    var aa;
-
-    // Step 1: Clear timeline
-    aa= await fetch(`${BASE_URL}/timelines/0/clear`, { method: "POST" });
-    // console.log(aa)
-
-    // Step 2: Add clip
-    aa= await fetch(`${BASE_URL}/timelines/0`, {
+    await fetch(`${BASE_URL}/timelines/0/clear`, { method: "POST" });
+    await new Promise(r => setTimeout(r, 100)); // small delay
+    await fetch(`${BASE_URL}/timelines/0`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clips: [clipId] })
     });
-    // console.log(aa)
-
-    // Step 3: Play
-    aa= await fetch(`${BASE_URL}/transports/0/play`, { method: "POST" });
-    // console.log(aa)
-
+    await fetch(`${BASE_URL}/transports/0/play`, { method: "POST" });
     res.json({ status: "playing", clipId });
   } catch (err) {
     console.error("Error playing clip:", err);
@@ -88,8 +69,66 @@ app.post("/api/play/:clipId", async (req, res) => {
   }
 });
 
+// HyperDeck WebSocket subscription
+const hyperdeckWs = new WebSocket(`ws://${HYPERDECK_IP}/control/api/v1/event/websocket`);
+
+hyperdeckWs.on("open", () => {
+  console.log("Connected to HyperDeck WS ✅");
+
+  const subscribeMsg = {
+    type: "request",
+    action: "subscribe",
+    data: { properties: [
+      "/media/active",
+      "/media/external",
+      "/media/external/selected",
+      "/media/nas/bookmarks",
+      "/media/nas/discovered",
+      "/media/workingset",
+      "/system",
+      "/system/codecFormat",
+      "/system/product",
+      "/system/supportedVideoFormats",
+      "/system/videoFormat",
+      "/timelines/0",
+      "/timelines/0/defaultVideoFormat",
+      "/timelines/0/videoFormat",
+      "/transports/0",
+      "/transports/0/clipIndex",
+      "/transports/0/inputVideoFormat",
+      "/transports/0/inputVideoSource",
+      "/transports/0/play",
+      "/transports/0/playback",
+      "/transports/0/record",
+      "/transports/0/stop",
+      "/transports/0/timecode",
+      "/transports/0/timecode/source"
+    ] } // subscribe to full transport
+  };
+
+  hyperdeckWs.send(JSON.stringify(subscribeMsg));
+});
+
+hyperdeckWs.on("message", (msg) => {
+  const data = JSON.parse(msg.toString());
+  if (data.type === "update" && data.path === "/transports/0") {
+    const broadcastData = {
+      status: data.data.state,
+      timecode: data.data.timecode,
+      clipIndex: data.data.clipIndex
+    };
+    console.log("Broadcasting to React:", broadcastData);  // ✅ log it
+    broadcast(broadcastData);
+  }
+});
 
 
-app.listen(4000, () =>
-  console.log("Backend running on http://localhost:4000")
-);
+hyperdeckWs.on("error", (err) => console.error("HyperDeck WS error:", err.message));
+hyperdeckWs.on("close", () => console.log("HyperDeck WS closed ❌"));
+
+setInterval(() => {
+  broadcast({ status: "idle", timecode: "00:00:00:00", clipIndex: null });
+}, 5000);
+
+
+app.listen(4000, () => console.log("Backend running on http://localhost:4000"));
