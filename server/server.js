@@ -77,8 +77,7 @@ hyperdeckWs.on("open", () => {
 
   const subscribeMsg = {
     type: "request",
-    action: "subscribe",
-    data: { properties: [
+    data: {action: "subscribe", properties: [
       "/media/active",
       "/media/external",
       "/media/external/selected",
@@ -111,24 +110,41 @@ hyperdeckWs.on("open", () => {
 
 hyperdeckWs.on("message", (msg) => {
   const data = JSON.parse(msg.toString());
-  if (data.type === "update" && data.path === "/transports/0") {
-    const broadcastData = {
-      status: data.data.state,
-      timecode: data.data.timecode,
-      clipIndex: data.data.clipIndex
-    };
-    console.log("Broadcasting to React:", broadcastData);  // ✅ log it
-    broadcast(broadcastData);
+
+  if ( data.data?.property) {
+    let broadcastData = {};
+
+    switch (data.data.property) {
+      case "/transports/0/timecode":
+        broadcastData.timecode = data.data.value.display;
+        break;
+
+      case "/transports/0/play":
+        broadcastData.playing = data.data.value;
+        break;
+
+      case "/transports/0/stop":
+        broadcastData.stopped = data.data.value;
+        break;
+
+      case "/transports/0/clipIndex":
+        broadcastData.clipIndex = data.data.value;
+        break;
+
+      default:
+        return; // ignore other updates for now
+    }
+
+    if (Object.keys(broadcastData).length > 0) {
+      console.log("Broadcasting to React:", broadcastData);
+      broadcast(broadcastData);
+    }
   }
 });
 
 
 hyperdeckWs.on("error", (err) => console.error("HyperDeck WS error:", err.message));
 hyperdeckWs.on("close", () => console.log("HyperDeck WS closed ❌"));
-
-setInterval(() => {
-  broadcast({ status: "idle", timecode: "00:00:00:00", clipIndex: null });
-}, 5000);
 
 
 app.listen(4000, () => console.log("Backend running on http://localhost:4000"));

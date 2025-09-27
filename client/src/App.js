@@ -15,7 +15,16 @@ useEffect(() => {
     try {
       const data = JSON.parse(event.data);
       console.log("Parsed data:", data);             // 🔹 log parsed object
-      if (data.status) setStatus(data.status);
+      // if (data.stopped && data.stopped===true  ) setStatus('Stopped');
+
+      if (data.playing !== undefined) {
+      if (data.playing === true) {
+        setStatus("Playing");
+      } else {
+        setStatus("Stopped");
+      }
+    }
+     
       if (data.timecode) setTimecode(data.timecode);
       if (data.clipIndex !== undefined) setCurrentClip(data.clipIndex);
     } catch (err) {
