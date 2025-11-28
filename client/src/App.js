@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import AudioRecordFormatControls from './AudioRecordFormatControls'
 import HyperDeckInfoPage from "./HyperDeckInfoPage";
 import HyperDeckGetExplorer from "./HyperDeckGetExplorer";
+import HyperDeckPostExplorer from "./HyperDeckPostExplorer";
+
 
 
 export default function HyperDeckController() {
@@ -186,6 +188,8 @@ export default function HyperDeckController() {
         </table>
       </div>
       <HyperDeckGetExplorer />
+      <HyperDeckPostExplorer />
+
       <HyperDeckInfoPage />
 
 

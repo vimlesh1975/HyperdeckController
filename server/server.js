@@ -385,6 +385,66 @@ app.get("/api/get-proxy", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Generic POST/PUT proxy for HyperDeck REST paths
+// Client sends: { path: "/system/codecFormat", method: "PUT", body: { ... } }
+app.post("/api/post-proxy", async (req, res) => {
+  try {
+    const { path, method = "POST", body } = req.body || {};
+
+    if (!path || typeof path !== "string") {
+      return res.status(400).json({ error: "Field 'path' is required" });
+    }
+
+    if (!path.startsWith("/")) {
+      return res
+        .status(400)
+        .json({ error: "Path must start with '/'. Example: /transports/0/play" });
+    }
+
+    const upperMethod = String(method).toUpperCase();
+    const allowedMethods = ["POST", "PUT"];
+    if (!allowedMethods.includes(upperMethod)) {
+      return res
+        .status(400)
+        .json({ error: "Method must be POST or PUT", method: upperMethod });
+    }
+
+    const url = `${BASE_URL}${path}`;
+    console.log("→", upperMethod, "proxy:", url, "body:", body);
+
+    const fetchOptions = {
+      method: upperMethod,
+      headers: {},
+    };
+
+    // attach JSON body if provided
+    if (body !== undefined && body !== null) {
+      fetchOptions.headers["Content-Type"] = "application/json";
+      fetchOptions.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url, fetchOptions);
+    const text = await response.text(); // HyperDeck often returns 204/empty
+
+    let parsed;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = text || null;
+    }
+
+    res.json({
+      url,
+      method: upperMethod,
+      status: response.status,
+      ok: response.ok,
+      body: parsed,
+    });
+  } catch (err) {
+    console.error("Error in /api/post-proxy:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 
 hyperdeckWs.on("message", (msg) => {
