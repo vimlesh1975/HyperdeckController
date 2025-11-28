@@ -115,6 +115,25 @@ export default function HyperDeckController() {
         <button onClick={() => setInputSource("HDMI")} style={{ marginLeft: 8 }}>
           Use HDMI Input
         </button>
+        <button
+          onClick={() => {
+            fetch("http://localhost:4000/api/post-proxy", {
+              method: "POST",   // you call backend post-proxy → always POST  
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                path: "/transports/0",     // REQUIRED
+                method: "PUT",             // PUT to HyperDeck
+                body: { mode: "InputPreview" } // JSON body sent to HyperDeck
+              })
+            })
+              .then(r => r.json())
+              .then(d => console.log("Response:", d))
+              .catch(console.error);
+          }}
+        >
+          Show Input
+        </button>
+
 
         < AudioRecordFormatControls />
 

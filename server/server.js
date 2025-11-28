@@ -388,6 +388,7 @@ app.get("/api/get-proxy", async (req, res) => {
 // Generic POST/PUT proxy for HyperDeck REST paths
 // Client sends: { path: "/system/codecFormat", method: "PUT", body: { ... } }
 app.post("/api/post-proxy", async (req, res) => {
+  // console.log(req)
   try {
     const { path, method = "POST", body } = req.body || {};
 

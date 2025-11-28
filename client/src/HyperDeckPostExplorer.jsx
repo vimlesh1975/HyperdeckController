@@ -61,6 +61,13 @@ export default function HyperDeckPostExplorer() {
             method: "PUT",
             exampleBody: { inputVideoSource: "HDMI" },
         },
+
+        {
+            label: "Show Input",
+            path: "/transports/0",
+            method: "PUT",
+            exampleBody: { mode: 'InputPreview' },
+        },
     ];
 
     // initialize from first action
