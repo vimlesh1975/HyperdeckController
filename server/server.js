@@ -119,6 +119,43 @@ app.post("/api/codec", async (req, res) => {
   }
 });
 
+// Set input video source: body: { "source": "sdi" } or { "source": "hdmi" }
+app.post("/api/input-source", async (req, res) => {
+  try {
+    const { source } = req.body;
+
+    // you can adjust allowed values based on your model: "sdi", "hdmi", "component", "composite", etc.
+    const allowed = ["SDI", "HDMI"];
+    if (!source || !allowed.includes(source)) {
+      return res.status(400).json({
+        error: "Invalid or missing source. Allowed values: " + allowed.join(", ")
+      });
+    }
+
+    const response = await fetch(`${BASE_URL}/transports/0/inputVideoSource`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inputVideoSource: source })
+      // Some firmwares may expect just { "source": "sdi" } or { "value": "sdi" }.
+      // If this body doesn't work, try changing the key, but keep the route logic same.
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return res.status(500).json({
+        error: `HyperDeck returned ${response.status}`,
+        details: text,
+      });
+    }
+
+    res.json({ status: "ok", inputVideoSource: source });
+  } catch (err) {
+    console.error("Error setting input source:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Play a specific clip via timeline
 app.post("/api/play/:clipId", async (req, res) => {
   const clipId = parseInt(req.params.clipId, 10);

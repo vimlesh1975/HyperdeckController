@@ -19,6 +19,12 @@ export default function HyperDeckController() {
       .catch(err => console.error("Error loading codecs:", err));
   };
 
+  const getCurrentcodec = async () => {
+    const res = await fetch("http://localhost:4000/api/codec");
+    const current = await res.json();
+    setCurrentCodec(current)
+  }
+
   // Connect to backend WebSocket
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:4001");
@@ -54,7 +60,9 @@ export default function HyperDeckController() {
   }
   useEffect(() => {
     getClips();
-    loadCodecs()
+    loadCodecs();
+    getCurrentcodec();
+
   }, []);
 
   const sendCommand = (cmd) => {
@@ -74,6 +82,18 @@ export default function HyperDeckController() {
     getClips();
   }
 
+  const setInputSource = (source) => {
+    fetch("http://localhost:4000/api/input-source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source })
+    })
+      .then(res => res.json())
+      .then(data => console.log("Set input source:", data))
+      .catch(err => console.error("Error setting input source:", err));
+  };
+
+
   return (
     <>
       <div style={{ padding: "5px" }}>
@@ -83,6 +103,12 @@ export default function HyperDeckController() {
         <button onClick={() => sendCommand("play")}>▶ Play</button>
         <button onClick={() => sendCommand("stop")}>⏹ Stop</button>
         <button onClick={() => sendCommand("record")}>⏺ Record</button>
+
+        <button onClick={() => setInputSource("SDI")}>Use SDI Input</button>
+        <button onClick={() => setInputSource("HDMI")} style={{ marginLeft: 8 }}>
+          Use HDMI Input
+        </button>
+
       </div>
 
       <div style={{ padding: "20px" }}>
@@ -113,13 +139,14 @@ export default function HyperDeckController() {
         }}>Set Codec Format</button>
 
         <button onClick={async () => {
-          const res = await fetch("http://localhost:4000/api/codec");
-          const current = await res.json();
-          console.log(current);
-          setCurrentCodec(current)
+          // const res = await fetch("http://localhost:4000/api/codec");
+          // const current = await res.json();
+          // setCurrentCodec(current)
+
+          getCurrentcodec();
 
         }}>Get current code</button>
-        {'Current code:' + currentCodec.codecFormat.codec + "_" + currentCodec.codecFormat.container}
+        {'Current code:' + currentCodec?.codecFormat?.codec + "_" + currentCodec?.codecFormat?.container}
         <table style={{ borderCollapse: "collapse", width: "100%", marginTop: "10px" }}>
           <thead>
             <tr style={{ backgroundColor: "#f2f2f2" }}>
@@ -151,6 +178,9 @@ export default function HyperDeckController() {
           </tbody>
         </table>
       </div>
+
+
+
     </>
   );
 }
