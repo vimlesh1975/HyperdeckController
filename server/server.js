@@ -156,6 +156,134 @@ app.post("/api/input-source", async (req, res) => {
 });
 
 
+app.get("/api/system-info", async (req, res) => {
+  try {
+    // We’ll call multiple HyperDeck REST endpoints in parallel
+    const urls = {
+      product: `${BASE_URL}/system/product`,
+      codecFormat: `${BASE_URL}/system/codecFormat`,
+      supportedVideoFormats: `${BASE_URL}/system/supportedVideoFormats`,
+      videoFormat: `${BASE_URL}/system/videoFormat`,
+      defaultTimelineFormat: `${BASE_URL}/timelines/0/defaultVideoFormat`,
+      timelineFormat: `${BASE_URL}/timelines/0/videoFormat`,
+      mediaActive: `${BASE_URL}/media/active`,
+      mediaWorkingset: `${BASE_URL}/media/workingset`,
+      transport: `${BASE_URL}/transports/0`,
+      inputVideoSource: `${BASE_URL}/transports/0/inputVideoSource`,
+      timecode: `${BASE_URL}/transports/0/timecode`,
+    };
+
+    const entries = await Promise.all(
+      Object.entries(urls).map(async ([key, url]) => {
+        try {
+          const resp = await fetch(url);
+          const text = await resp.text(); // sometimes 204/no body
+          if (!resp.ok) {
+            return [key, { error: true, status: resp.status, text }];
+          }
+          // try parse JSON, else return raw text
+          let json;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = text || null;
+          }
+          return [key, json];
+        } catch (e) {
+          return [key, { error: true, message: e.message }];
+        }
+      })
+    );
+
+    const result = Object.fromEntries(entries);
+    res.json(result);
+  } catch (err) {
+    console.error("Error fetching system info:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.get("/api/audio-supported-record-formats", async (req, res) => {
+  try {
+    const url = `${BASE_URL}/audio/supportedRecordFormats`;
+    console.log("→ GET", url);
+
+    const response = await fetch(url);
+
+    const text = await response.text(); // read raw text always
+    console.log("HyperDeck /audio/supportedRecordFormats =", response.status, text);
+
+    if (!response.ok) {
+      // forward real error from HyperDeck instead of generic 500
+      return res
+        .status(response.status)
+        .json({ error: `HyperDeck HTTP ${response.status}`, details: text });
+    }
+
+    // if OK, parse JSON from text
+    const data = JSON.parse(text);
+    res.json(data);
+  } catch (err) {
+    console.error("Error fetching supported audio formats:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get current record audio format (codec + channels currently set)
+app.get("/api/audio-record-format", async (req, res) => {
+  try {
+    const response = await fetch(`${BASE_URL}/audio/recordFormat`);
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return res
+        .status(500)
+        .json({ error: `HyperDeck returned ${response.status}`, details: text });
+    }
+    const data = await response.json();
+    // { codec: "PCM", numChannels: 16 }
+    res.json(data);
+  } catch (err) {
+    console.error("Error fetching record audio format:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Set record audio format (this is where you choose numChannels)
+app.post("/api/audio-record-format", async (req, res) => {
+  try {
+    const { codec, numChannels } = req.body;
+
+    if (!codec || typeof numChannels !== "number") {
+      return res
+        .status(400)
+        .json({ error: "codec and numChannels are required" });
+    }
+
+    const body = { codec, numChannels };
+
+    const response = await fetch(`${BASE_URL}/audio/recordFormat`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return res.status(500).json({
+        error: `HyperDeck returned ${response.status}`,
+        details: text,
+      });
+    }
+
+    res.json({ status: "ok", set: body });
+  } catch (err) {
+    console.error("Error setting record audio format:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Play a specific clip via timeline
 app.post("/api/play/:clipId", async (req, res) => {
   const clipId = parseInt(req.params.clipId, 10);
@@ -219,6 +347,7 @@ hyperdeckWs.on("open", () => {
 
 hyperdeckWs.on("message", (msg) => {
   const data = JSON.parse(msg.toString());
+  // console.log("HD EVENT:", JSON.stringify(data, null, 2));
 
   if (data.data?.property) {
     let broadcastData = {};

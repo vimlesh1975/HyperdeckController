@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 
+import AudioRecordFormatControls from './AudioRecordFormatControls'
+import HyperDeckInfoPage from "./HyperDeckInfoPage";
+
 export default function HyperDeckController() {
   const [status, setStatus] = useState("Idle");
   const [timecode, setTimecode] = useState("00:00:00:00");
@@ -109,6 +112,8 @@ export default function HyperDeckController() {
           Use HDMI Input
         </button>
 
+        < AudioRecordFormatControls />
+
       </div>
 
       <div style={{ padding: "20px" }}>
@@ -179,7 +184,7 @@ export default function HyperDeckController() {
         </table>
       </div>
 
-
+      <HyperDeckInfoPage />
 
     </>
   );
