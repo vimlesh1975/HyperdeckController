@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 import AudioRecordFormatControls from './AudioRecordFormatControls'
 import HyperDeckInfoPage from "./HyperDeckInfoPage";
+import HyperDeckGetExplorer from "./HyperDeckGetExplorer";
+
 
 export default function HyperDeckController() {
   const [status, setStatus] = useState("Idle");
@@ -183,8 +185,9 @@ export default function HyperDeckController() {
           </tbody>
         </table>
       </div>
-
+      <HyperDeckGetExplorer />
       <HyperDeckInfoPage />
+
 
     </>
   );

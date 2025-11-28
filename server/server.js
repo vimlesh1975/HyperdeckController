@@ -345,6 +345,48 @@ hyperdeckWs.on("open", () => {
   hyperdeckWs.send(JSON.stringify(subscribeMsg));
 });
 
+// Generic GET proxy for HyperDeck REST paths
+// Example: /api/get-proxy?path=/system/product
+app.get("/api/get-proxy", async (req, res) => {
+  try {
+    const path = req.query.path;
+
+    if (!path || typeof path !== "string") {
+      return res.status(400).json({ error: "Query parameter 'path' is required" });
+    }
+
+    if (!path.startsWith("/")) {
+      return res
+        .status(400)
+        .json({ error: "Path must start with '/'. Example: /system/product" });
+    }
+
+    const url = `${BASE_URL}${path}`;
+    console.log("→ GET proxy:", url);
+
+    const response = await fetch(url);
+    const text = await response.text(); // read as text first
+
+    let body;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text || null; // not JSON, just return raw text
+    }
+
+    res.json({
+      url,
+      status: response.status,
+      ok: response.ok,
+      body,
+    });
+  } catch (err) {
+    console.error("Error in /api/get-proxy:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 hyperdeckWs.on("message", (msg) => {
   const data = JSON.parse(msg.toString());
   // console.log("HD EVENT:", JSON.stringify(data, null, 2));
