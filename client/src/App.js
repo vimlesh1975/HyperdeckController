@@ -1,57 +1,57 @@
-import  { useEffect, useState } from "react";
-import SupportedCodecsCombo from './Codecs'
+import { useEffect, useState } from "react";
 
 export default function HyperDeckController() {
   const [status, setStatus] = useState("Idle");
   const [timecode, setTimecode] = useState("00:00:00:00");
   const [clips, setClips] = useState([]);
   const [currentClip, setCurrentClip] = useState(null);
-const [supportedCodecs, setSupportedCodecs] = useState([]);
-const [selectedCodec, setSelectedCodec] = useState("");
+  const [supportedCodecs, setSupportedCodecs] = useState([]);
+  const [selectedCodec, setSelectedCodec] = useState("");
+  const [currentCodec, setCurrentCodec] = useState("");
 
   const loadCodecs = () => {
-  fetch("http://localhost:4000/api/supported-codecs")
-    .then(res => res.json())
-    .then(data => {
-      console.log("Supported Codecs:", data);
-      setSupportedCodecs(data.codecFormats);
-    })
-    .catch(err => console.error("Error loading codecs:", err));
-};
+    fetch("http://localhost:4000/api/supported-codecs")
+      .then(res => res.json())
+      .then(data => {
+        console.log("Supported Codecs:", data);
+        setSupportedCodecs(data.codecFormats);
+      })
+      .catch(err => console.error("Error loading codecs:", err));
+  };
 
   // Connect to backend WebSocket
-useEffect(() => {
-  const ws = new WebSocket("ws://localhost:4001");
-  ws.onopen = () => console.log("Connected to backend WS");
-  ws.onmessage = (event) => {
-    console.log("WS message received:", event.data);  // 🔹 log raw message
-    try {
-      const data = JSON.parse(event.data);
-      console.log("Parsed data:", data);             // 🔹 log parsed object
-      // if (data.stopped && data.stopped===true  ) setStatus('Stopped');
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:4001");
+    ws.onopen = () => console.log("Connected to backend WS");
+    ws.onmessage = (event) => {
+      console.log("WS message received:", event.data);  // 🔹 log raw message
+      try {
+        const data = JSON.parse(event.data);
+        console.log("Parsed data:", data);             // 🔹 log parsed object
+        // if (data.stopped && data.stopped===true  ) setStatus('Stopped');
 
-      if (data.playing !== undefined) {
-      if (data.playing === true) {
-        setStatus("Playing");
-      } else {
-        setStatus("Stopped");
+        if (data.playing !== undefined) {
+          if (data.playing === true) {
+            setStatus("Playing");
+          } else {
+            setStatus("Stopped");
+          }
+        }
+
+        if (data.timecode) setTimecode(data.timecode);
+        if (data.clipIndex !== undefined) setCurrentClip(data.clipIndex);
+      } catch (err) {
+        console.error("Failed to parse WS message:", err);
       }
-    }
-     
-      if (data.timecode) setTimecode(data.timecode);
-      if (data.clipIndex !== undefined) setCurrentClip(data.clipIndex);
-    } catch (err) {
-      console.error("Failed to parse WS message:", err);
-    }
-  };
-  return () => ws.close();
-}, []);
+    };
+    return () => ws.close();
+  }, []);
 
-const getClips=()=>{
-   fetch("http://localhost:4000/api/clips")
+  const getClips = () => {
+    fetch("http://localhost:4000/api/clips")
       .then(res => res.json())
       .then(data => setClips(data.clips || []));
-}
+  }
   useEffect(() => {
     getClips();
     loadCodecs()
@@ -70,8 +70,8 @@ const getClips=()=>{
 
   const cell = { border: "1px solid #ddd", padding: "8px", textAlign: "center" };
 
-  const refreshClips=()=>{
-  getClips();
+  const refreshClips = () => {
+    getClips();
   }
 
   return (
@@ -88,24 +88,38 @@ const getClips=()=>{
       <div style={{ padding: "20px" }}>
         <h2>🎬 HyperDeck Clips</h2>
         <button onClick={refreshClips}>Refresh clips</button>
-       {<select
-        value={selectedCodec}
-        onChange={(e) => setSelectedCodec(e.target.value)}
-      >
-        <option value="">-- Select Codec --</option>
+        {<select
+          value={selectedCodec}
+          onChange={(e) => setSelectedCodec(e.target.value)}
+        >
+          <option value="">-- Select Codec --</option>
 
-        {supportedCodecs && supportedCodecs.map((val, i) => (
-          <option key={i} value={val.codec}>
-            {val.codec + '_' + val.container }
-          </option>
-        ))}
-      </select>
+          {supportedCodecs && supportedCodecs.map((val, i) => (
+            <option key={i} value={val.codec + '_' + val.container}>
+              {val.codec + '_' + val.container}
+            </option>
+          ))}
+        </select>
 
-     
-}
-     <button onClick={()=>{
-      
-     }}>St Codec Format</button>
+
+        }
+        <button onClick={() => {
+          fetch("http://localhost:4000/api/codec", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ codec: selectedCodec.split("_")[0], container: selectedCodec.split("_")[1] })
+          });
+
+        }}>Set Codec Format</button>
+
+        <button onClick={async () => {
+          const res = await fetch("http://localhost:4000/api/codec");
+          const current = await res.json();
+          console.log(current);
+          setCurrentCodec(current)
+
+        }}>Get current code</button>
+        {'Current code:' + currentCodec.codecFormat.codec + "_" + currentCodec.codecFormat.container}
         <table style={{ borderCollapse: "collapse", width: "100%", marginTop: "10px" }}>
           <thead>
             <tr style={{ backgroundColor: "#f2f2f2" }}>

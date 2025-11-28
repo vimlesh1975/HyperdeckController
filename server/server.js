@@ -61,6 +61,63 @@ app.get("/api/supported-codecs", async (req, res) => {
   }
 });
 
+//
+// 🔹 NEW: get current codec format
+//
+app.get("/api/codec", async (req, res) => {
+  try {
+    const response = await fetch(`${BASE_URL}/system/codecFormat`);
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return res.status(500).json({
+        error: `HyperDeck returned ${response.status}`,
+        details: text,
+      });
+    }
+    const data = await response.json();
+    res.json(data); // e.g. { codec: "ProRes:HQ", container: "MOV" }
+  } catch (err) {
+    console.error("Error fetching current codec:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//
+// 🔹 NEW: set current recording codec
+// body: { "codec": "ProRes:HQ", "container": "MOV" }
+// container is optional; depends on your workflow
+//
+app.post("/api/codec", async (req, res) => {
+  try {
+    const { codec, container } = req.body;
+
+    if (!codec) {
+      return res.status(400).json({ error: "codec is required" });
+    }
+
+    const body = container ? { codec, container } : { codec };
+
+    const response = await fetch(`${BASE_URL}/system/codecFormat`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return res.status(500).json({
+        error: `HyperDeck returned ${response.status}`,
+        details: text,
+      });
+    }
+
+    // HyperDeck usually returns 204 No Content on success
+    res.json({ status: "ok", set: body });
+  } catch (err) {
+    console.error("Error setting codec format:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Play a specific clip via timeline
 app.post("/api/play/:clipId", async (req, res) => {
@@ -89,32 +146,35 @@ hyperdeckWs.on("open", () => {
 
   const subscribeMsg = {
     type: "request",
-    data: {action: "subscribe", properties: [
-      "/media/active",
-      "/media/external",
-      "/media/external/selected",
-      "/media/nas/bookmarks",
-      "/media/nas/discovered",
-      "/media/workingset",
-      "/system",
-      "/system/codecFormat",
-      "/system/product",
-      "/system/supportedVideoFormats",
-      "/system/videoFormat",
-      "/timelines/0",
-      "/timelines/0/defaultVideoFormat",
-      "/timelines/0/videoFormat",
-      "/transports/0",
-      "/transports/0/clipIndex",
-      "/transports/0/inputVideoFormat",
-      "/transports/0/inputVideoSource",
-      "/transports/0/play",
-      "/transports/0/playback",
-      "/transports/0/record",
-      "/transports/0/stop",
-      "/transports/0/timecode",
-      "/transports/0/timecode/source"
-    ] } // subscribe to full transport
+    data: {
+      action: "subscribe",
+      properties: [
+        "/media/active",
+        "/media/external",
+        "/media/external/selected",
+        "/media/nas/bookmarks",
+        "/media/nas/discovered",
+        "/media/workingset",
+        "/system",
+        "/system/codecFormat",
+        "/system/product",
+        "/system/supportedVideoFormats",
+        "/system/videoFormat",
+        "/timelines/0",
+        "/timelines/0/defaultVideoFormat",
+        "/timelines/0/videoFormat",
+        "/transports/0",
+        "/transports/0/clipIndex",
+        "/transports/0/inputVideoFormat",
+        "/transports/0/inputVideoSource",
+        "/transports/0/play",
+        "/transports/0/playback",
+        "/transports/0/record",
+        "/transports/0/stop",
+        "/transports/0/timecode",
+        "/transports/0/timecode/source"
+      ]
+    }
   };
 
   hyperdeckWs.send(JSON.stringify(subscribeMsg));
@@ -123,7 +183,7 @@ hyperdeckWs.on("open", () => {
 hyperdeckWs.on("message", (msg) => {
   const data = JSON.parse(msg.toString());
 
-  if ( data.data?.property) {
+  if (data.data?.property) {
     let broadcastData = {};
 
     switch (data.data.property) {
@@ -143,20 +203,22 @@ hyperdeckWs.on("message", (msg) => {
         broadcastData.clipIndex = data.data.value;
         break;
 
+      case "/system/codecFormat":
+        // if you want, you can also broadcast codec changes live to React
+        broadcastData.codecFormat = data.data.value;
+        break;
+
       default:
         return; // ignore other updates for now
     }
 
     if (Object.keys(broadcastData).length > 0) {
-      // console.log("Broadcasting to React:", broadcastData);
       broadcast(broadcastData);
     }
   }
 });
 
-
 hyperdeckWs.on("error", (err) => console.error("HyperDeck WS error:", err.message));
 hyperdeckWs.on("close", () => console.log("HyperDeck WS closed ❌"));
-
 
 app.listen(4000, () => console.log("Backend running on http://localhost:4000"));
