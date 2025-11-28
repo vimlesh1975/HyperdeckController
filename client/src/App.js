@@ -100,8 +100,12 @@ const getClips=()=>{
           </option>
         ))}
       </select>
+
+     
 }
-    
+     <button onClick={()=>{
+      
+     }}>St Codec Format</button>
         <table style={{ borderCollapse: "collapse", width: "100%", marginTop: "10px" }}>
           <thead>
             <tr style={{ backgroundColor: "#f2f2f2" }}>
