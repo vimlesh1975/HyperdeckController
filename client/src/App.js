@@ -1,10 +1,23 @@
-import React, { useEffect, useState } from "react";
+import  { useEffect, useState } from "react";
+import SupportedCodecsCombo from './Codecs'
 
 export default function HyperDeckController() {
   const [status, setStatus] = useState("Idle");
   const [timecode, setTimecode] = useState("00:00:00:00");
   const [clips, setClips] = useState([]);
   const [currentClip, setCurrentClip] = useState(null);
+const [supportedCodecs, setSupportedCodecs] = useState([]);
+const [selectedCodec, setSelectedCodec] = useState("");
+
+  const loadCodecs = () => {
+  fetch("http://localhost:4000/api/supported-codecs")
+    .then(res => res.json())
+    .then(data => {
+      console.log("Supported Codecs:", data);
+      setSupportedCodecs(data.codecFormats);
+    })
+    .catch(err => console.error("Error loading codecs:", err));
+};
 
   // Connect to backend WebSocket
 useEffect(() => {
@@ -34,12 +47,14 @@ useEffect(() => {
   return () => ws.close();
 }, []);
 
-
-  // Fetch clips
-  useEffect(() => {
-    fetch("http://localhost:4000/api/clips")
+const getClips=()=>{
+   fetch("http://localhost:4000/api/clips")
       .then(res => res.json())
       .then(data => setClips(data.clips || []));
+}
+  useEffect(() => {
+    getClips();
+    loadCodecs()
   }, []);
 
   const sendCommand = (cmd) => {
@@ -55,6 +70,10 @@ useEffect(() => {
 
   const cell = { border: "1px solid #ddd", padding: "8px", textAlign: "center" };
 
+  const refreshClips=()=>{
+  getClips();
+  }
+
   return (
     <>
       <div style={{ padding: "5px" }}>
@@ -68,6 +87,21 @@ useEffect(() => {
 
       <div style={{ padding: "20px" }}>
         <h2>🎬 HyperDeck Clips</h2>
+        <button onClick={refreshClips}>Refresh clips</button>
+       {<select
+        value={selectedCodec}
+        onChange={(e) => setSelectedCodec(e.target.value)}
+      >
+        <option value="">-- Select Codec --</option>
+
+        {supportedCodecs && supportedCodecs.map((val, i) => (
+          <option key={i} value={val.codec}>
+            {val.codec + '_' + val.container }
+          </option>
+        ))}
+      </select>
+}
+    
         <table style={{ borderCollapse: "collapse", width: "100%", marginTop: "10px" }}>
           <thead>
             <tr style={{ backgroundColor: "#f2f2f2" }}>

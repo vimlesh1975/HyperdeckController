@@ -50,6 +50,18 @@ app.get("/api/clips", async (req, res) => {
   }
 });
 
+app.get("/api/supported-codecs", async (req, res) => {
+  try {
+    const response = await fetch(`${BASE_URL}/system/supportedCodecFormats`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("Error fetching codec formats:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Play a specific clip via timeline
 app.post("/api/play/:clipId", async (req, res) => {
   const clipId = parseInt(req.params.clipId, 10);
@@ -136,7 +148,7 @@ hyperdeckWs.on("message", (msg) => {
     }
 
     if (Object.keys(broadcastData).length > 0) {
-      console.log("Broadcasting to React:", broadcastData);
+      // console.log("Broadcasting to React:", broadcastData);
       broadcast(broadcastData);
     }
   }
